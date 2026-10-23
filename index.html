@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Fieldfront: Solo Survival</title>
+<style>
+:root{--panel:rgba(12,22,27,.84);--line:#a8c7c2;--lime:#b9f36a;--red:#ff625d}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#17251f;color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}body:fullscreen{width:100vw;height:100vh}body:-webkit-full-screen{width:100vw;height:100vh}
+canvas{display:block;width:100vw;height:100vh;cursor:crosshair}
+#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 4px #000}
+.panel{background:var(--panel);border:1px solid #8eaaa488;border-radius:12px;padding:10px 13px;backdrop-filter:blur(6px)}
+#topLeft{position:absolute;left:12px;top:12px;min-width:185px}#topRight{position:absolute;right:60px;top:12px;text-align:right;min-width:160px}#fullscreenBtn{position:absolute;right:12px;top:12px;pointer-events:auto;width:40px;height:40px;padding:0;border-radius:10px;background:var(--panel);border:1px solid #8eaaa488;color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;z-index:3}#fullscreenBtn:active{background:#34483f}
+.small{font-size:12px;color:#c8d9d4}.big{font-size:21px;font-weight:800;letter-spacing:.3px}.accent{color:var(--lime)}
+#healthWrap{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);width:min(310px,55vw);text-align:center}
+#healthBar{height:12px;background:#26352e;border:1px solid #c3d3c5;border-radius:8px;overflow:hidden;margin-top:4px}#healthFill{height:100%;width:100%;background:linear-gradient(90deg,#71d94e,#b8ef63);transition:width .15s}
+#toast{position:absolute;top:25%;left:50%;transform:translateX(-50%);font-weight:800;font-size:clamp(16px,3vw,26px);text-align:center;white-space:pre-line}
+#minimap{position:absolute;right:12px;top:100px;width:142px;height:142px;border:2px solid #c2d6c2;border-radius:8px;background:#263a2d;opacity:.94}
+#help{position:absolute;left:12px;bottom:12px;max-width:270px;font-size:11px;color:#e0e8df}
+#touchControls{position:fixed;inset:0;pointer-events:none;display:none}
+.touch{position:absolute;pointer-events:auto;border:1px solid #ffffff88;background:#17251f99;color:white;border-radius:50%;width:66px;height:66px;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;user-select:none}
+#stick{left:24px;bottom:34px;width:118px;height:118px;border-radius:50%}#fire{right:24px;bottom:36px;width:82px;height:82px;background:#6b2725b8}#reload{right:110px;bottom:125px}#pickup{right:24px;bottom:135px}#run{left:118px;bottom:38px}
+#overlay{position:fixed;inset:0;background:linear-gradient(135deg,#101b19ee,#1c3027ed);display:flex;align-items:center;justify-content:center;padding:20px;z-index:5}
+.card{width:min(560px,100%);padding:26px;border:1px solid #8ca99c88;border-radius:20px;background:#101c1bea;box-shadow:0 20px 70px #0008}
+h1{margin:0 0 6px;font-size:clamp(28px,6vw,42px);letter-spacing:-1px}p{color:#d0ddd5;line-height:1.5}.tag{color:var(--lime);font-weight:800;letter-spacing:2px;font-size:11px}
+button{border:0;border-radius:10px;padding:13px 18px;font-weight:800;cursor:pointer;background:var(--lime);color:#182319;font-size:15px}button.secondary{background:#34483f;color:#fff}#overlayBtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.rules{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.rule{background:#ffffff0b;border:1px solid #ffffff16;padding:10px;border-radius:9px;font-size:12px;color:#d3dfd6}
+@media(pointer:coarse){#touchControls{display:block}#help{display:none}#minimap{width:112px;height:112px;top:150px}#topRight{top:12px}#topLeft{max-width:175px}}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="fullscreenBtn" aria-label="Toggle fullscreen" title="Toggle fullscreen">⛶</button>
+<div id="hud">
+ <div id="topLeft" class="panel"><div class="tag">FIELDFRONT · SOLO</div><div class="big" id="levelLabel">LEVEL 1 / 3</div><div class="small"><span id="alive">20</span> combatants remaining</div><div class="small">Time <span id="clock">00:00</span> · <span id="zoneLabel">Pine Hollow</span></div></div>
+ <div id="topRight" class="panel"><div class="big" id="gunLabel">Pistol <span class="accent">12 / 48</span></div><div class="small">R reload · E pick up</div><div class="small">WASD move · Mouse aim/fire</div></div>
+ <canvas id="minimap" width="142" height="142"></canvas>
+ <div id="toast"></div>
+ <div id="healthWrap"><div><b>♥ HP <span id="hpText">50</span>/50</b> <span class="small"> · Kills <span id="kills">0</span></span></div><div id="healthBar"><div id="healthFill"></div></div></div>
+ <div id="help" class="panel">WASD move · Mouse aim · Click shoot<br>Shift sprint · R reload · E pick up weapon<br>Eliminate all opponents to clear a level.</div>
+</div>
+<div id="touchControls">
+ <div class="touch" id="stick">MOVE</div><div class="touch" id="fire">FIRE</div><div class="touch" id="reload">RELOAD</div><div class="touch" id="pickup">PICK UP</div><div class="touch" id="run">SPRINT</div>
+</div>
+<div id="overlay"><div class="card"><div class="tag">A SMALL-SCALE SURVIVAL SHOOTER</div><h1 id="ovTitle">Fieldfront</h1><p id="ovText">Drop into Pine Hollow, find a weapon, and survive against 19 moving opponents. Every run reshuffles spawns and weapon drops. Three levels; no perks, no walls, just movement and aim.</p><div class="rules"><div class="rule"><b>20 combatants</b><br>1 player + 19 NPCs</div><div class="rule"><b>50 HP</b><br>Find med kits to recover</div><div class="rule"><b>Weapon pickups</b><br>Pistol, SMG, rifle, shotgun</div><div class="rule"><b>3 levels</b><br>NPCs improve each round</div></div><div id="overlayBtns"><button id="startBtn">DROP IN</button><button class="secondary" id="howBtn">CONTROLS</button></div><p id="extra" class="small">Desktop: WASD + mouse. Mobile: left joystick + FIRE. Best in landscape mode.</p></div></div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),mini=document.getElementById('minimap'),mctx=mini.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=Math.min(devicePixelRatio||1,2);
+function resize(){W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+const MAP={w:3400,h:2900}, names=['Pine Hollow','Redridge Hamlet','Stonewater Range'];
+const weapons={
+ Pistol:{mag:12,reserve:48,rate:.28,damage:8,speed:680,reload:1.05,color:'#e5e5d0',spread:.045},
+ SMG:{mag:28,reserve:112,rate:.095,damage:5,speed:720,reload:1.35,color:'#f6d56b',spread:.10},
+ Rifle:{mag:30,reserve:90,rate:.15,damage:9,speed:850,reload:1.55,color:'#ffdf8b',spread:.055},
+ Shotgun:{mag:6,reserve:30,rate:.72,damage:6,speed:620,reload:1.4,color:'#f6a56a',spread:.32}
+};
+let level=1,running=false,paused=false,player,npcs=[],bullets=[],drops=[],obstacles=[],trees=[],rocks=[],camera={x:0,y:0},keys={},mouse={x:W/2,y:H/2,down:false},last=0,elapsed=0,kills=0,toastUntil=0,toastText='',mapSeed=1,roundId=0;
+const rand=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)],dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let audioCtx=null,lastHurtSound=0;
+function initAudio(){if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC()}if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume()}
+function tone(freq,duration,type='sine',volume=.035,slide=0){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.setValueAtTime(freq,audioCtx.currentTime);if(slide)o.frequency.linearRampToValueAtTime(Math.max(40,freq+slide),audioCtx.currentTime+duration);g.gain.setValueAtTime(volume,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+duration)}catch(e){}}
+function sfx(name){if(!audioCtx)return;if(name==='shoot'){tone(135,.075,'square',.025,-65);tone(65,.09,'triangle',.018,-20)}else if(name==='enemy'){tone(210,.07,'square',.012,-65)}else if(name==='hit'){tone(95,.12,'sawtooth',.035,-45)}else if(name==='pickup'){tone(520,.09,'sine',.03,180);setTimeout(()=>tone(760,.12,'sine',.025,100),70)}else if(name==='reload'){tone(330,.06,'triangle',.018,-70);setTimeout(()=>tone(440,.07,'triangle',.018,50),180)}else if(name==='empty'){tone(180,.045,'square',.018,-35)}else if(name==='win'){tone(440,.16,'sine',.03,100);setTimeout(()=>tone(660,.22,'sine',.03,120),140)}}
+function say(s,secs=2){toastText=s;toastUntil=performance.now()+secs*1000}
+function circleRect(cx,cy,r,o){let x=clamp(cx,o.x,o.x+o.w),y=clamp(cy,o.y,o.y+o.h);return (cx-x)**2+(cy-y)**2<r*r}
+function blocked(x,y,r){return x<r||y<r||x>MAP.w-r||y>MAP.h-r||obstacles.some(o=>circleRect(x,y,r,o))}
+function freePos(avoid=[]){for(let i=0;i<200;i++){let p={x:rand(100,MAP.w-100),y:rand(100,MAP.h-100)};if(!blocked(p.x,p.y,24)&&avoid.every(a=>dist(a,p)>110))return p}return{x:MAP.w/2,y:MAP.h/2}}
+function makeMap(){
+ obstacles=[];trees=[];rocks=[];drops=[];bullets=[];
+ // Fresh randomized terrain props and compact, original settlement layout.
+ for(let i=0;i<42;i++){let x=rand(140,MAP.w-200),y=rand(140,MAP.h-170),w=rand(65,138),h=rand(55,118);
+   if(Math.hypot(x-MAP.w/2,y-MAP.h/2)<170)continue;
+   obstacles.push({x,y,w,h,type:pick(['house','shed','ruin']),tone:pick(['#9c8064','#aa936e','#8d9a8b','#9b7668']),searched:false})}
+ for(let i=0;i<92;i++){let x=rand(30,MAP.w-30),y=rand(30,MAP.h-30);if(!obstacles.some(o=>circleRect(x,y,25,o)))trees.push({x,y,r:rand(10,21),tone:pick(['#426847','#52784b','#385c43','#6b8150'])})}
+ for(let i=0;i<34;i++){let x=rand(40,MAP.w-40),y=rand(40,MAP.h-40);if(!obstacles.some(o=>circleRect(x,y,24,o)))rocks.push({x,y,r:rand(12,26)})}
+ for(let i=0;i<26;i++){let p=freePos();drops.push({...p,kind:Math.random()<.19?'Medkit':pick(['SMG','Rifle','Shotgun','Pistol']),taken:false})}
+}
+function newRound(l){
+ level=l;roundId++;elapsed=0;kills=0;makeMap();player={...freePos(),r:13,hp:50,weapon:'Pistol',ammo:12,reserve:48,angle:0,lastShot:0,reload:0,dead:false};
+ npcs=[];for(let i=0;i<19;i++){let p;let attempts=0;do{p=freePos([player,...npcs]);attempts++}while(attempts<120&&(dist(p,player)<560||npcs.some(other=>dist(p,other)<170)));npcs.push({...p,id:i,r:12,hp:level===1?32:level===2?40:48,maxHp:level===1?32:level===2?40:48,weapon:pick(level===1?['Pistol','SMG','Pistol','Rifle']:level===2?['SMG','Rifle','Pistol','Shotgun']:['Rifle','SMG','Shotgun','Rifle']),ammo:99,alive:true,angle:rand(0,Math.PI*2),state:'wander',tx:p.x,ty:p.y,think:rand(.1,2),lastShot:rand(0,1),speed:rand(65,92)+level*5,skill:.52+level*.13,burst:0,flash:0})}
+ running=true;paused=false;document.getElementById('overlay').style.display='none';say('LEVEL '+level+' · '+names[level-1],2.4);updateHUD();
+}
+function startGame(){initAudio();newRound(1)}
+function nextLevel(){if(level<3){running=false;document.getElementById('overlay').style.display='flex';document.getElementById('ovTitle').textContent='Level '+level+' cleared!';document.getElementById('ovText').textContent='You survived the round. Opponents will move faster, aim better, and take more damage to eliminate in the next area.';document.getElementById('startBtn').textContent='NEXT LEVEL';document.getElementById('startBtn').onclick=()=>{initAudio();newRound(level+1)};document.getElementById('extra').textContent='Your HP resets to 50 for a fair start. Weapon starts as a pistol.'}else{running=false;document.getElementById('overlay').style.display='flex';document.getElementById('ovTitle').textContent='FIELD CHAMPION';document.getElementById('ovText').textContent='All three levels cleared. You survived the whole Fieldfront run.';document.getElementById('startBtn').textContent='PLAY AGAIN';document.getElementById('startBtn').onclick=startGame;document.getElementById('extra').textContent='Every replay randomizes the battlefield, spawns, and loot.'}}
+function gameOver(){running=false;player.dead=true;document.getElementById('overlay').style.display='flex';document.getElementById('ovTitle').textContent='YOU WERE ELIMINATED';document.getElementById('ovText').textContent=`Level ${level} ended after ${formatTime(elapsed)} with ${kills} eliminations. Try using cover and picking up a stronger weapon.`;document.getElementById('startBtn').textContent='RETRY LEVEL';document.getElementById('startBtn').onclick=()=>{initAudio();newRound(level)};document.getElementById('extra').textContent='The battlefield and all NPC positions will be randomized again.'}
+function formatTime(t){let s=Math.floor(t);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function updateHUD(){
+ document.getElementById('levelLabel').textContent=`LEVEL ${level} / 3`;document.getElementById('alive').textContent=1+npcs.filter(n=>n.alive).length;
+ document.getElementById('clock').textContent=formatTime(elapsed);document.getElementById('zoneLabel').textContent=names[level-1];
+ document.getElementById('gunLabel').innerHTML=`${player.weapon} <span class="accent">${player.ammo} / ${player.reserve}</span>`;
+ document.getElementById('hpText').textContent=Math.ceil(player.hp);document.getElementById('healthFill').style.width=player.hp*2+'%';document.getElementById('kills').textContent=kills;
+}
+function moveEntity(e,dx,dy){let nx=e.x+dx,ny=e.y+dy;if(!blocked(nx,e.y,e.r))e.x=nx;if(!blocked(e.x,ny,e.r))e.y=ny}
+function lineBlocked(a,b){for(let o of obstacles){let steps=8;for(let i=1;i<steps;i++){let t=i/steps;if(circleRect(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,3,o))return true}}return false}
+let lastNpcShotSfx=0;function targetingSoundAllowed(shooter){const now=performance.now();if(now-lastNpcShotSfx>180){lastNpcShotSfx=now;return true}return false}
+function shoot(shooter,angle,isPlayer=false){
+ let w=weapons[shooter.weapon];if(isPlayer){if(shooter.reload>0||shooter.ammo<=0){if(shooter.ammo<=0&&shooter.reserve>0)reload();return}shooter.ammo--;shooter.lastShot=elapsed}
+ else {shooter.lastShot=elapsed}
+ let count=shooter.weapon==='Shotgun'?6:1;
+ for(let i=0;i<count;i++){let spread=(Math.random()-.5)*w.spread*(isPlayer?1:2.1);let a=angle+spread;bullets.push({x:shooter.x+Math.cos(a)*17,y:shooter.y+Math.sin(a)*17,vx:Math.cos(a)*w.speed,vy:Math.sin(a)*w.speed,life:.95,damage:w.damage,owner:isPlayer?'player':'npc',color:w.color})}
+ if(isPlayer){sfx('shoot');updateHUD()}else if(targetingSoundAllowed(shooter))sfx('enemy')
+}
+function reload(){if(!player||player.reload>0||player.ammo>=weapons[player.weapon].mag||player.reserve<=0)return;initAudio();sfx('reload');player.reload=weapons[player.weapon].reload;say('RELOADING…',.8)}
+function finishReload(){let w=weapons[player.weapon],n=Math.min(w.mag-player.ammo,player.reserve);player.ammo+=n;player.reserve-=n;player.reload=0;updateHUD()}
+function pickup(){initAudio();let d=drops.find(d=>!d.taken&&dist(player,d)<52);if(d){d.taken=true;sfx('pickup');if(d.kind==='Medkit'){player.hp=Math.min(50,player.hp+20);say('MEDKIT +20 HP')}else{player.weapon=d.kind;let w=weapons[d.kind];player.ammo=w.mag;player.reserve=w.reserve;say(d.kind+' equipped')}updateHUD();return}let house=obstacles.filter(o=>o.type==='house'&&!o.searched).map(o=>({o,d:dist(player,{x:o.x+o.w/2,y:o.y+o.h/2})})).filter(v=>v.d<100).sort((a,b)=>a.d-b.d)[0];if(house){house.o.searched=true;sfx('pickup');let roll=Math.random();if(roll<.34){let kind=pick(['SMG','Rifle','Shotgun']);drops.push({x:house.o.x+house.o.w/2,y:house.o.y+house.o.h+18,kind,taken:false});say('HOUSE SEARCHED · SUPPLIES FOUND')}else if(roll<.68){drops.push({x:house.o.x+house.o.w/2,y:house.o.y+house.o.h+18,kind:'Medkit',taken:false});say('HOUSE SEARCHED · MEDKIT FOUND')}else{player.reserve+=Math.ceil(weapons[player.weapon].mag*.7);say('HOUSE SEARCHED · AMMO FOUND')}updateHUD();return}say('No pickup nearby — approach a house to search it')}
+function damage(target,amount,byPlayer=false){target.hp-=amount;if(target===player&&performance.now()-lastHurtSound>220){sfx('hit');lastHurtSound=performance.now()}if(target===player){if(target.hp<=0){target.hp=0;updateHUD();gameOver()}}else if(target.hp<=0&&target.alive){target.alive=false;if(byPlayer){kills++;say('OPPONENT ELIMINATED',.7);if(Math.random()<.48)drops.push({x:target.x,y:target.y,kind:Math.random()<.18?'Medkit':target.weapon,taken:false})}updateHUD();if(npcs.every(n=>!n.alive)){sfx('win');nextLevel()}}}
+function activeEngagementLimit(){return level===1?2:level===2?5:10}
+function npcEngagingPlayer(n){return n.alive&&n.targetingPlayer===true}
+function update(dt){
+ if(!running||paused)return;elapsed+=dt;
+ // Cap how many NPCs may actively focus the player at one time.
+ const limit=activeEngagementLimit();
+ const currentEngagers=npcs.filter(n=>n.alive&&n.targetingPlayer).sort((a,b)=>(a.engageUntil||0)-(b.engageUntil||0));
+ while(currentEngagers.length>limit){const n=currentEngagers.shift();n.targetingPlayer=false;n.state='wander';n.think=rand(1.2,2.8)}
+ let engaging=npcs.filter(n=>n.alive&&n.targetingPlayer).length;
+ for(const n of npcs){if(!n.alive)continue;
+   const close=dist(n,player)<390;
+   if(n.targetingPlayer&&(!close||(n.engageUntil||0)<elapsed)){n.targetingPlayer=false;n.state='wander';n.think=rand(1.0,2.3)}
+   if(!n.targetingPlayer&&close&&engaging<limit&&Math.random()<dt*(level===1?.45:level===2?.72:1.0)){n.targetingPlayer=true;n.engageUntil=elapsed+rand(4,8);engaging++}
+ }
+
+ if(player.reload>0){player.reload-=dt;if(player.reload<=0)finishReload()}
+ let sp=keys.Shift?245:175,dx=0,dy=0;if(keys.w||keys.ArrowUp)dy--;if(keys.s||keys.ArrowDown)dy++;if(keys.a||keys.ArrowLeft)dx--;if(keys.d||keys.ArrowRight)dx++;
+ if(touchMove.active){dx=touchMove.x;dy=touchMove.y;sp=touchSprint?245:175}
+ let len=Math.hypot(dx,dy)||1;if(dx||dy)moveEntity(player,dx/len*sp*dt,dy/len*sp*dt);
+ player.angle=Math.atan2(mouse.y-H/2,mouse.x-W/2);
+ if(mouse.down&&elapsed-player.lastShot>=weapons[player.weapon].rate)shoot(player,player.angle,true);
+ for(let n of npcs){if(!n.alive)continue;n.think-=dt;n.flash=Math.max(0,n.flash-dt);
+  let target=null,td=1e9;if(n.targetingPlayer&&dist(n,player)<460){target=player;td=dist(n,player)}
+  for(let other of npcs){if(other!==n&&other.alive){let d=dist(n,other);if(d<td&&d<215&&Math.random()<0.72){target=other;td=d}}}
+  if(n.think<=0){n.think=rand(.35,1.1)/(1+level*.15);if(target&&td<410){n.state=td<170?'strafe':'attack';n.tx=target.x+rand(-70,70);n.ty=target.y+rand(-70,70)}else{n.state='wander';let p=freePos();n.tx=p.x;n.ty=p.y}}
+  if(target&&td<430){let desired=Math.atan2(target.y-n.y,target.x-n.x);n.angle=desired+rand(-.12,.12);if(td>145){let ang=Math.atan2(n.ty-n.y,n.tx-n.x);moveEntity(n,Math.cos(ang)*n.speed*dt,Math.sin(ang)*n.speed*dt)}else{let side=desired+(n.id%2?Math.PI/2:-Math.PI/2);moveEntity(n,Math.cos(side)*n.speed*.55*dt,Math.sin(side)*n.speed*.55*dt)}
+   let w=weapons[n.weapon],cool=level===1?rand(.78,1.35):level===2?rand(.58,1.0):rand(.42,.82);
+   if(td<350&&elapsed-n.lastShot>cool&&(!lineBlocked(n,target)||td<110)){shoot(n,n.angle);n.lastShot=elapsed}
+  }else{let ang=Math.atan2(n.ty-n.y,n.tx-n.x);if(Math.hypot(n.tx-n.x,n.ty-n.y)>18)moveEntity(n,Math.cos(ang)*n.speed*.65*dt,Math.sin(ang)*n.speed*.65*dt);else n.think=0}
+ }
+ for(let b of bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0||b.x<0||b.y<0||b.x>MAP.w||b.y>MAP.h||obstacles.some(o=>circleRect(b.x,b.y,3,o))){b.life=0;continue}
+  if(b.owner==='player'){for(let n of npcs){if(n.alive&&Math.hypot(b.x-n.x,b.y-n.y)<n.r+3){damage(n,b.damage,true);b.life=0;break}}}
+  else if(Math.hypot(b.x-player.x,b.y-player.y)<player.r+3){damage(player,b.damage);b.life=0}
+ }
+ bullets=bullets.filter(b=>b.life>0);
+ camera.x=clamp(player.x-W/2,0,MAP.w-W);camera.y=clamp(player.y-H/2,0,MAP.h-H);
+ updateHUD();drawMini();
+}
+function drawGround(){
+ ctx.fillStyle='#667a51';ctx.fillRect(0,0,W,H);
+ // rolling hill contours, road network
+ for(let i=0;i<14;i++){let x=((i*251-camera.x*.22)% (W+300))-120,y=((i*173-camera.y*.22)%(H+260))-80;ctx.fillStyle=i%2?'#71865a33':'#334f3c26';ctx.beginPath();ctx.ellipse(x,y,180+i%4*35,65+i%3*20, -.3,0,Math.PI*2);ctx.fill()}
+ ctx.strokeStyle='#b8a77c';ctx.lineWidth=38;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(100-camera.x,500-camera.y);ctx.bezierCurveTo(650-camera.x,480-camera.y,700-camera.x,900-camera.y,1200-camera.x,820-camera.y);ctx.bezierCurveTo(1700-camera.x,750-camera.y,1700-camera.x,1300-camera.y,2500-camera.x,1420-camera.y);ctx.stroke();
+ ctx.strokeStyle='#d0c39b';ctx.lineWidth=2;ctx.setLineDash([9,13]);ctx.stroke();ctx.setLineDash([]);
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);drawGround();
+ // rocks, houses, trees
+ for(let r of rocks){let x=r.x-camera.x,y=r.y-camera.y;if(x<-40||y<-40||x>W+40||y>H+40)continue;ctx.fillStyle='#5c6257';ctx.beginPath();ctx.ellipse(x,y,r.r,r.r*.72,-.3,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#899184';ctx.stroke()}
+ for(let o of obstacles){let x=o.x-camera.x,y=o.y-camera.y;if(x<-180||y<-150||x>W+100||y>H+100)continue;ctx.fillStyle='#26352c55';ctx.fillRect(x+7,y+9,o.w,o.h);ctx.fillStyle=o.tone;ctx.fillRect(x,y,o.w,o.h);ctx.fillStyle='#645342';ctx.beginPath();ctx.moveTo(x-5,y+3);ctx.lineTo(x+o.w*.48,y-18);ctx.lineTo(x+o.w+8,y+3);ctx.closePath();ctx.fill();ctx.fillStyle='#394b4a';ctx.fillRect(x+o.w*.2,y+o.h*.3,Math.min(22,o.w*.2),18);ctx.fillRect(x+o.w*.66,y+o.h*.3,Math.min(22,o.w*.2),18);ctx.fillStyle='#564736';ctx.fillRect(x+o.w*.43,y+o.h*.62,Math.min(24,o.w*.2),o.h*.38);if(o.type==='house'&&!o.searched){ctx.fillStyle='#e5d6a0';ctx.beginPath();ctx.arc(x+o.w*.5,y+o.h+7,3,0,Math.PI*2);ctx.fill()}}
+ for(let t of trees){let x=t.x-camera.x,y=t.y-camera.y;if(x<-35||y<-35||x>W+35||y>H+35)continue;ctx.fillStyle='#2c4432';ctx.fillRect(x-3,y+2,6,t.r+8);ctx.fillStyle=t.tone;ctx.beginPath();ctx.arc(x,y,t.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffffff0a';ctx.beginPath();ctx.arc(x-5,y-6,t.r*.55,0,Math.PI*2);ctx.fill()}
+ for(let d of drops){if(d.taken)continue;let x=d.x-camera.x,y=d.y-camera.y;if(x<-20||y<-20||x>W+20||y>H+20)continue;ctx.fillStyle=d.kind==='Medkit'?'#e8fff0':'#f2d37b';ctx.fillRect(x-8,y-8,16,16);ctx.strokeStyle='#1e2c21';ctx.lineWidth=2;ctx.strokeRect(x-8,y-8,16,16);ctx.fillStyle='#27342a';ctx.font='bold 9px sans-serif';ctx.textAlign='center';ctx.fillText(d.kind==='Medkit'?'+' : d.kind[0],x,y+3)}
+ for(let b of bullets){ctx.fillStyle=b.color;ctx.beginPath();ctx.arc(b.x-camera.x,b.y-camera.y,3,0,Math.PI*2);ctx.fill()}
+ for(let n of npcs){if(!n.alive)continue;let x=n.x-camera.x,y=n.y-camera.y;if(x<-40||y<-40||x>W+40||y>H+40)continue;drawPerson(n,x,y,false)}
+ if(player&&!player.dead)drawPerson(player,player.x-camera.x,player.y-camera.y,true);
+ // crosshair
+ ctx.strokeStyle='#f3f7e8';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(mouse.x,mouse.y,8,0,Math.PI*2);ctx.moveTo(mouse.x-13,mouse.y);ctx.lineTo(mouse.x-5,mouse.y);ctx.moveTo(mouse.x+5,mouse.y);ctx.lineTo(mouse.x+13,mouse.y);ctx.moveTo(mouse.x,mouse.y-13);ctx.lineTo(mouse.x,mouse.y-5);ctx.moveTo(mouse.x,mouse.y+5);ctx.lineTo(mouse.x,mouse.y+13);ctx.stroke();
+ if(performance.now()<toastUntil){ctx.fillStyle='#101c1dcc';ctx.fillRect(W/2-150,H*.22-22,300,44);ctx.fillStyle='#fff';ctx.font='bold 18px system-ui';ctx.textAlign='center';ctx.fillText(toastText,W/2,H*.22+5)}
+}
+function drawPerson(p,x,y,isPlayer){ctx.save();ctx.translate(x,y);ctx.rotate(p.angle);ctx.fillStyle='#0005';ctx.beginPath();ctx.ellipse(2,5,14,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=isPlayer?'#e1c79b':(['#c8b28a','#7f9a88','#9b7770','#b4b9a0'][p.id%4]);ctx.beginPath();ctx.arc(0,0,p.r,0,Math.PI*2);ctx.fill();ctx.fillStyle=isPlayer?'#253b35':'#35423a';ctx.fillRect(-5,-8,12,16);ctx.fillStyle='#292b24';ctx.fillRect(4,-3,18,6);ctx.fillStyle='#e5cba7';ctx.beginPath();ctx.arc(5,0,5,0,Math.PI*2);ctx.fill();ctx.restore();
+ if(!isPlayer){ctx.fillStyle='#211e19';ctx.fillRect(x-13,y-23,26,4);ctx.fillStyle='#ff655b';ctx.fillRect(x-13,y-23,26*Math.max(0,p.hp/p.maxHp),4);ctx.fillStyle='#ff645b';ctx.beginPath();ctx.moveTo(x,y-29);ctx.lineTo(x-5,y-36);ctx.lineTo(x+5,y-36);ctx.fill()}}
+function drawMini(){mctx.clearRect(0,0,142,142);mctx.fillStyle='#526b4b';mctx.fillRect(0,0,142,142);mctx.strokeStyle='#c6b88a';mctx.lineWidth=3;mctx.beginPath();mctx.moveTo(5,40);mctx.lineTo(65,56);mctx.lineTo(84,90);mctx.lineTo(138,110);mctx.stroke();for(let o of obstacles){mctx.fillStyle='#ad9a7b';mctx.fillRect(o.x/MAP.w*142,o.y/MAP.h*142,Math.max(2,o.w/MAP.w*142),Math.max(2,o.h/MAP.h*142))}for(let n of npcs){if(n.alive){mctx.fillStyle='#fa655b';mctx.fillRect(n.x/MAP.w*142-1,n.y/MAP.h*142-1,3,3)}}if(player){mctx.fillStyle='#f8f8db';mctx.beginPath();mctx.arc(player.x/MAP.w*142,player.y/MAP.h*142,3,0,Math.PI*2);mctx.fill()}}
+function loop(t){let dt=Math.min(.04,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+addEventListener('keydown',e=>{keys[e.key]=true;if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();if(e.key.toLowerCase()==='r')reload();if(e.key.toLowerCase()==='e')pickup();if(e.key==='Escape')paused=!paused});
+addEventListener('keyup',e=>keys[e.key]=false);
+canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});
+canvas.addEventListener('mousedown',e=>{if(e.button===0)mouse.down=true});addEventListener('mouseup',()=>mouse.down=false);
+canvas.addEventListener('touchstart',e=>{if(e.target===canvas){let t=e.touches[0];mouse.x=t.clientX;mouse.y=t.clientY;mouse.down=true}}, {passive:false});canvas.addEventListener('touchmove',e=>{if(e.target===canvas&&e.touches.length){let t=e.touches[0];mouse.x=t.clientX;mouse.y=t.clientY}}, {passive:false});canvas.addEventListener('touchend',()=>mouse.down=false);
+async function toggleFullscreen(){try{if(!document.fullscreenElement&&!document.webkitFullscreenElement){let el=document.documentElement;if(el.requestFullscreen)await el.requestFullscreen();else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();else say('Fullscreen is not supported by this browser');}else{if(document.exitFullscreen)await document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen();}}catch(e){say('Tap again or use your browser menu for fullscreen');}}
+document.getElementById('fullscreenBtn').addEventListener('click',toggleFullscreen);
+function syncFullscreenButton(){let on=!!(document.fullscreenElement||document.webkitFullscreenElement);document.getElementById('fullscreenBtn').textContent=on?'⛶':'⛶';document.getElementById('fullscreenBtn').title=on?'Exit fullscreen':'Enter fullscreen';}
+document.addEventListener('fullscreenchange',syncFullscreenButton);document.addEventListener('webkitfullscreenchange',syncFullscreenButton);
+document.getElementById('startBtn').onclick=startGame;document.getElementById('howBtn').onclick=()=>{document.getElementById('ovText').textContent='Desktop: WASD or arrows to move, move mouse to aim, hold left-click to shoot. Press R to reload and E near a pickup or an unsearched house for supplies. Mobile: use the MOVE pad, aim by touching the play area, FIRE to shoot, and PICK UP to collect nearby items. Houses and rocks block bullets.'};
+const touchMove={active:false,x:0,y:0};let touchSprint=false,stickOrigin=null;
+const stick=document.getElementById('stick');
+stick.addEventListener('pointerdown',e=>{stick.setPointerCapture(e.pointerId);touchMove.active=true;stickOrigin={x:e.clientX,y:e.clientY};touchMove.x=0;touchMove.y=0});
+stick.addEventListener('pointermove',e=>{if(!touchMove.active||!stickOrigin)return;let dx=e.clientX-stickOrigin.x,dy=e.clientY-stickOrigin.y,len=Math.hypot(dx,dy)||1;touchMove.x=dx/Math.max(42,len);touchMove.y=dy/Math.max(42,len)});
+stick.addEventListener('pointerup',()=>{touchMove.active=false;touchMove.x=touchMove.y=0;stickOrigin=null});stick.addEventListener('pointercancel',()=>{touchMove.active=false;touchMove.x=touchMove.y=0;stickOrigin=null});
+document.getElementById('fire').addEventListener('pointerdown',e=>{e.preventDefault();mouse.down=true});document.getElementById('fire').addEventListener('pointerup',()=>mouse.down=false);document.getElementById('fire').addEventListener('pointercancel',()=>mouse.down=false);
+document.getElementById('reload').onclick=reload;document.getElementById('pickup').onclick=pickup;document.getElementById('run').addEventListener('pointerdown',()=>touchSprint=true);document.getElementById('run').addEventListener('pointerup',()=>touchSprint=false);document.getElementById('run').addEventListener('pointercancel',()=>touchSprint=false);
+})();
+</script>
+</body></html>
